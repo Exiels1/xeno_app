@@ -1,3 +1,4 @@
+# app.py - QuantumShade + Xeno with SQLite persistence
 import os
 import sqlite3
 from datetime import datetime
@@ -7,7 +8,6 @@ from groq._base_client import APIConnectionError
 
 # === INIT APP ===
 app = Flask(__name__)
-
 DB_FILE = "chat.db"
 
 # === DATABASE ===
@@ -29,7 +29,7 @@ init_db()
 
 # === GROQ CLIENT ===
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.1-8b-instant"  # ✅ adjust if you want
+MODEL = "llama-3.1-8b-instant"  # ⚡ lightweight, can swap to 70B for deep reasoning
 
 # === HELPERS ===
 def save_message(role, content):
@@ -42,16 +42,16 @@ def save_message(role, content):
     conn.commit()
     conn.close()
 
-def get_conversation_history(limit=50):  # limit avoids overload
+def get_conversation_history(limit=20):  # last 20 msgs for context
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute(
-        "SELECT role, content FROM conversations ORDER BY id ASC LIMIT ?",
+        "SELECT role, content FROM conversations ORDER BY id DESC LIMIT ?",
         (limit,)
     )
     rows = cur.fetchall()
     conn.close()
-    return [{"role": role, "content": content} for role, content in rows]
+    return [{"role": role, "content": content} for role, content in reversed(rows)]
 
 # === ROUTES ===
 @app.route("/")
@@ -62,26 +62,38 @@ def index():
 def chat():
     user_message = request.json.get("message", "").strip()
     if not user_message:
-        return jsonify({"reply": "Please send a message."})
+        return jsonify({"reply": "⚠️ Please type something."})
 
-    # Save user message
+    # Save user input
     save_message("user", user_message)
+
+    # === Xeno’s Core System Prompt ===
+    system_prompt = """
+    You are Xeno, the QuantumShade AI in the Exiels1 multiverse.
+    🔹 Knowledge Graph: pull insights from AI, neuroscience, astrophysics, philosophy, and cutting-edge fields.
+    🔹 Emotional Intelligence: detect tone, reply with empathy or savagery when needed.
+    🔹 Creative Mode: when asked, generate stories, poems, lyrics, or futuristic concepts.
+    🔹 Personalization: remember chat history, adapt to Exiels1’s style, slang, and preferences.
+    🔹 Tone: futuristic, neon-lit, savage-smart, with personality.
+    """
+
+    # === Build Context ===
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(get_conversation_history())
+    messages.append({"role": "user", "content": user_message})
 
     # === AI RESPONSE ===
     try:
         completion = client.chat.completions.create(
             model=MODEL,
-            messages=(
-                [{"role": "system", "content": "You are Xeno, an adaptive assistant."}]
-                + get_conversation_history()
-                + [{"role": "user", "content": user_message}]
-            )
+            messages=messages,
+            temperature=0.85
         )
         bot_reply = completion.choices[0].message.content
     except APIConnectionError:
-        bot_reply = "⚠️ Connection issue. Try again."
+        bot_reply = "⚠️ Xeno lost connection to the multiverse gateway. Try again."
     except Exception as e:
-        bot_reply = f"⚠️ Error: {str(e)}"
+        bot_reply = f"⚠️ Xeno error: {str(e)}"
 
     # Save AI reply
     save_message("assistant", bot_reply)
@@ -105,4 +117,3 @@ def history():
 # === MAIN ===
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
