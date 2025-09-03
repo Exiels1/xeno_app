@@ -106,3 +106,61 @@ loadHistory();
 
 // === Bind send form ===
 document.getElementById('chatForm').addEventListener('submit', sendMessage);
+
+document.addEventListener("DOMContentLoaded", () => {
+  const chatBox = document.getElementById("chat-box");
+  const chatInput = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("send-btn");
+
+  function appendMessage(sender, message, isTyping = false) {
+    const msg = document.createElement("div");
+    msg.classList.add("message", sender);
+
+    if (isTyping) {
+      msg.classList.add("typing-indicator");
+      msg.innerHTML = `
+        <span></span>
+        <span></span>
+        <span></span>
+      `;
+    } else {
+      msg.textContent = message;
+    }
+
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return msg;
+  }
+
+  async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    appendMessage("user", text);
+    chatInput.value = "";
+
+    // Add typing animation
+    const typingMsg = appendMessage("xeno", "", true);
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+
+      // Replace typing animation with reply
+      typingMsg.remove();
+      appendMessage("xeno", data.reply);
+    } catch (err) {
+      typingMsg.remove();
+      appendMessage("xeno", "⚠️ Error connecting to server.");
+    }
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  chatInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+});
