@@ -11,17 +11,14 @@ app = Flask(__name__)
 def init_db():
     with sqlite3.connect("chat.db") as conn:
         cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sender TEXT,
-                message TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        cur.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, message TEXT)")
+        try:
+            cur.execute("ALTER TABLE messages ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
         conn.commit()
 
-init_db()
 
 # === GROQ CLIENT ===
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -47,7 +44,7 @@ def chat():
     # === AI RESPONSE ===
     try:
         response = client.chat.completions.create(
-            model=model_to_use,
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "You are Xeno, an adaptive, professional AI assistant. Keep responses concise and precise."},
                 {"role": "user", "content": user_message}
