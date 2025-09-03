@@ -104,3 +104,5 @@ def history():
 # === MAIN ===
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+
+#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 api key
