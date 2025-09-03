@@ -8,16 +8,18 @@ from groq._base_client import APIConnectionError
 # === INIT APP ===
 app = Flask(__name__)
 
+DB_FILE = "chat.db"
+
 # === DATABASE ===
 def init_db():
-    conn = sqlite3.connect("chat.db")
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS messages (
+        CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender TEXT,
-            message TEXT,
-            timestamp TEXT
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
     conn.commit()
@@ -27,7 +29,29 @@ init_db()
 
 # === GROQ CLIENT ===
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.1-8b-instant"  # Replace with your valid model
+MODEL = "llama-3.1-8b-instant"  # ✅ adjust if you want
+
+# === HELPERS ===
+def save_message(role, content):
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO conversations (role, content, timestamp) VALUES (?, ?, ?)",
+        (role, content, datetime.utcnow().isoformat())
+    )
+    conn.commit()
+    conn.close()
+
+def get_conversation_history(limit=50):  # limit avoids overload
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT role, content FROM conversations ORDER BY id ASC LIMIT ?",
+        (limit,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [{"role": role, "content": content} for role, content in rows]
 
 # === ROUTES ===
 @app.route("/")
@@ -40,96 +64,44 @@ def chat():
     if not user_message:
         return jsonify({"reply": "Please send a message."})
 
-    timestamp = datetime.utcnow().isoformat()
-
     # Save user message
-    conn = sqlite3.connect("chat.db")
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO messages (sender, message, timestamp) VALUES (?, ?, ?)",
-        ("user", user_message, timestamp)
-    )
-    conn.commit()
+    save_message("user", user_message)
 
     # === AI RESPONSE ===
     try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are Xeno, an adaptive and professional AI assistant. "
-                        "Respond concisely, clearly, and contextually. "
-                        "For code, always format in markdown with proper syntax highlighting. "
-                        "Use bullet points for instructions when helpful, "
-                        "and avoid unnecessary fluff. "
-                        "Keep a neutral, professional tone."
-                    )
-                },
-                {"role": "user", "content": user_message}
-            ]
+        completion = client.chat.completions.create(
+            model=MODEL,
+            messages=(
+                [{"role": "system", "content": "You are Xeno, an adaptive assistant."}]
+                + get_conversation_history()
+                + [{"role": "user", "content": user_message}]
+            )
         )
-        bot_reply = response.choices[0].message.content
-    except APIConnectionError as e:
-        bot_reply = "Hmm… I’m having trouble connecting to the AI service. Please try again."
+        bot_reply = completion.choices[0].message.content
+    except APIConnectionError:
+        bot_reply = "⚠️ Connection issue. Try again."
     except Exception as e:
-        bot_reply = f"An unexpected error occurred: {str(e)}"
+        bot_reply = f"⚠️ Error: {str(e)}"
 
-    # Save bot message
-    cur.execute(
-        "INSERT INTO messages (sender, message, timestamp) VALUES (?, ?, ?)",
-        ("xeno", bot_reply, datetime.utcnow().isoformat())
-    )
-    conn.commit()
-    conn.close()
+    # Save AI reply
+    save_message("assistant", bot_reply)
 
     return jsonify({"reply": bot_reply})
 
 @app.route("/history", methods=["GET"])
 def history():
-    conn = sqlite3.connect("chat.db")
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
-    cur.execute("SELECT sender, message, timestamp FROM messages ORDER BY id ASC")
+    cur.execute("SELECT role, content, timestamp FROM conversations ORDER BY id ASC")
     rows = cur.fetchall()
     conn.close()
 
-    # Convert to list of dicts for frontend
     history_data = [
-        {"role": sender, "message": message, "timestamp": timestamp}
-        for sender, message, timestamp in rows
+        {"role": role, "message": content, "timestamp": timestamp}
+        for role, content, timestamp in rows
     ]
     return jsonify(history_data)
-
-@app.route("/chat", methods=["POST"])
-def chat():
-    user_message = request.json["message"]
-
-    # Save user message
-    c.execute("INSERT INTO conversations (role, content) VALUES (?, ?)", ("user", user_message))
-    conn.commit()
-
-    # Get AI reply
-    completion = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=get_conversation_history() + [{"role": "user", "content": user_message}]
-    )
-    reply = completion.choices[0].message.content
-
-    # Save AI reply
-    c.execute("INSERT INTO conversations (role, content) VALUES (?, ?)", ("assistant", reply))
-    conn.commit()
-
-    return jsonify({"reply": reply})
-
-def get_conversation_history():
-    c.execute("SELECT role, content FROM conversations ORDER BY id ASC")
-    rows = c.fetchall()
-    return [{"role": role, "content": content} for role, content in rows]
-
 
 # === MAIN ===
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-
-#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 api key
