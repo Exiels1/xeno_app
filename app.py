@@ -101,6 +101,33 @@ def history():
     ]
     return jsonify(history_data)
 
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_message = request.json["message"]
+
+    # Save user message
+    c.execute("INSERT INTO conversations (role, content) VALUES (?, ?)", ("user", user_message))
+    conn.commit()
+
+    # Get AI reply
+    completion = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=get_conversation_history() + [{"role": "user", "content": user_message}]
+    )
+    reply = completion.choices[0].message.content
+
+    # Save AI reply
+    c.execute("INSERT INTO conversations (role, content) VALUES (?, ?)", ("assistant", reply))
+    conn.commit()
+
+    return jsonify({"reply": reply})
+
+def get_conversation_history():
+    c.execute("SELECT role, content FROM conversations ORDER BY id ASC")
+    rows = c.fetchall()
+    return [{"role": role, "content": content} for role, content in rows]
+
+
 # === MAIN ===
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
