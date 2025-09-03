@@ -1,81 +1,28 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuantumShade Chat</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuantumShade Chat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="quantum">
-    <div class="app">
-        <div class="topbar">
-            <div class="title">QuantumShade Chat</div>
-            <div class="user">You are online</div>
-        </div>
-        <div class="chat-area" id="chat-area">
-            <!-- Messages will be dynamically inserted here -->
-        </div>
-        <form class="chat-form" id="chat-form">
-            <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
-            <button type="submit">Send</button>
-        </form>
+  <div class="app">
+    <div class="topbar">
+      <div class="title">QuantumShade Chat</div>
+      <div class="user">You are online</div>
     </div>
 
-    <script>
-        const chatForm = document.getElementById('chat-form');
-        const messageInput = document.getElementById('message-input');
-        const chatArea = document.getElementById('chat-area');
+    <div class="chat-area" id="chatArea">
+      <!-- Messages injected here -->
+    </div>
 
-        // Load chat history
-        fetch("/history")
-            .then(res => res.json())
-            .then(data => {
-                data.forEach(msg => {
-                    appendMessage(msg[0], msg[1]);
-                });
-                chatArea.scrollTop = chatArea.scrollHeight;
-            });
+    <form class="chat-form" id="chatForm">
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
 
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (!message) return;
-            appendMessage('user', message);
-            messageInput.value = '';
-
-            try {
-                const response = await fetch("/chat", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({message})
-                });
-                const data = await response.json();
-                appendMessage('assistant', data.reply);
-                chatArea.scrollTop = chatArea.scrollHeight;
-            } catch (err) {
-                appendMessage('assistant', "Error generating response. Try again.");
-            }
-        });
-
-        function appendMessage(sender, text) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('msg', sender === 'user' ? 'user' : 'assistant');
-
-            const metaDiv = document.createElement('div');
-            metaDiv.classList.add('meta');
-            const now = new Date();
-            metaDiv.textContent = sender === 'user' ? 'You • ' : 'Xeno • ';
-            metaDiv.textContent += now.toLocaleTimeString();
-
-            const textDiv = document.createElement('div');
-            textDiv.classList.add('content');
-            textDiv.textContent = text;
-
-            msgDiv.appendChild(metaDiv);
-            msgDiv.appendChild(textDiv);
-            chatArea.appendChild(msgDiv);
-        }
-    </script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
