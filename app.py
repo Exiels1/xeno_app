@@ -28,7 +28,7 @@ def init_db():
 init_db()
 
 # === GROQ CLIENT ===
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = Groq(api_key="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")
 MODEL = "llama-3.1-8b-instant"  # ⚡ lightweight, can swap to 70B for deep reasoning
 
 # === HELPERS ===
