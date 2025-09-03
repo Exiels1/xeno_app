@@ -13,7 +13,6 @@
   <!-- Topbar -->
   <header class="topbar">
     <div class="left">
-      <button id="btnGraph" class="ghost">☰ Graph</button>
       <div class="title">QuantumShade • Xeno</div>
       <div id="modeBadge" class="badge">Normal</div>
     </div>
@@ -29,11 +28,10 @@
 
   <!-- Layout -->
   <main class="layout">
-    <!-- Knowledge Graph Panel -->
-    <aside id="graphPanel" class="panel hidden">
+    <!-- Knowledge Graph Panel (always visible) -->
+    <aside id="graphPanel" class="panel">
       <div class="panel-header">
         <div>Knowledge Graph</div>
-        <button id="btnCloseGraph" class="ghost">✕</button>
       </div>
       <div id="graph" class="graph"></div>
       <div class="panel-footer">
