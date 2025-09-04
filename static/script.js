@@ -81,8 +81,12 @@ function speak(text) {
   if ('speechSynthesis' in window) {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "en-US";
-    utter.rate = 1;
-    utter.pitch = 1;
+    utter.rate = 1.15;   // Slightly faster
+    utter.pitch = 1.4;   // Higher pitch for a teen-like voice
+    // Optionally, pick a youthful voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const teenVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft Aria Online"));
+    if (teenVoice) utter.voice = teenVoice;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   }
