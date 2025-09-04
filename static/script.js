@@ -76,6 +76,18 @@ function hideTyping(){
   typingEl = null;
 }
 
+// ---- Text-to-Speech ----
+function speak(text) {
+  if ('speechSynthesis' in window) {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 1;
+    utter.pitch = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+  }
+}
+
 // ---- Append message ----
 function appendMessage(role, text, mood=null){
   const el = document.createElement("div");
@@ -92,6 +104,18 @@ function appendMessage(role, text, mood=null){
 
   el.appendChild(meta);
   el.appendChild(content);
+
+  // Add speak button for assistant messages
+  if (role === "assistant") {
+    const speakBtn = document.createElement("button");
+    speakBtn.textContent = "🔊";
+    speakBtn.className = "ghost";
+    speakBtn.style.marginLeft = "8px";
+    speakBtn.title = "Speak";
+    speakBtn.onclick = () => speak(text);
+    el.appendChild(speakBtn);
+  }
+
   chatArea.appendChild(el);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
