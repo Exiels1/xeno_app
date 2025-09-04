@@ -39,7 +39,6 @@ const prefTheme = document.getElementById("prefTheme");
 const btnSavePrefs = document.getElementById("btnSavePrefs");
 
 const btnGraph = document.getElementById("btnGraph");
-const btnCloseGraph = document.getElementById("btnCloseGraph");
 const btnRefreshGraph = document.getElementById("btnRefreshGraph");
 const graphPanel = document.getElementById("graphPanel");
 
@@ -176,8 +175,6 @@ toggleCreative.addEventListener("change", ()=>{
 });
 
 // ---- Graph Panel ----
-btnGraph.addEventListener("click", ()=> graphPanel.classList.toggle("hidden"));
-btnCloseGraph.addEventListener("click", ()=> graphPanel.classList.add("hidden"));
 btnRefreshGraph.addEventListener("click", ()=> rebuildGraphFromHistory());
 
 // ---- Knowledge Graph (Cytoscape) ----
