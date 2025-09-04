@@ -271,38 +271,3 @@ async function rebuildGraphFromHistory(){
 // ---- Boot ----
 loadHistory();
 rebuildGraphFromHistory();
-function initGraph() {
-  const cy = cytoscape({
-    container: document.getElementById("graph"),
-    elements: [
-      { data: { id: 'xeno' } },
-      { data: { id: 'user' } },
-      { data: { source: 'user', target: 'xeno' } }
-    ],
-    style: [
-      {
-        selector: 'node',
-        style: {
-          'background-color': '#00f0ff',
-          'label': 'data(id)',
-          'color': '#fff',
-          'text-outline-color': '#111',
-          'text-outline-width': 2,
-          'font-size': '12px'
-        }
-      },
-      {
-        selector: 'edge',
-        style: {
-          'width': 2,
-          'line-color': '#ff00aa',
-          'target-arrow-color': '#ff00aa',
-          'target-arrow-shape': 'triangle'
-        }
-      }
-    ],
-    layout: { name: 'cose' }
-  });
-}
-
-document.addEventListener("DOMContentLoaded", initGraph);

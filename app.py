@@ -85,7 +85,7 @@ def chat():
     # === AI RESPONSE ===
     try:
         completion = client.chat.completions.create(
-            model=MODEL,
+            model="llama-3.1-8b-instant",
             messages=messages,
             temperature=0.85
         )
