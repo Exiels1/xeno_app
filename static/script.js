@@ -209,61 +209,44 @@ function ensureGraph(){
   return cy;
 }
 
-const topicPalette = {
-  "ai":"#00e6ff", "neuroscience":"#9b7cff", "astrophysics":"#ff3b88",
-  "math":"#3cf0a5","code":"#ffd166","ethics":"#ff5c7a","data":"#7be0ff"
-};
-
-function extractTopics(text){
-  const T = text.toLowerCase();
-  const topics = [];
-  const keys = Object.keys(topicPalette);
-  keys.forEach(k => { if (T.includes(k)) topics.push(k); });
-  // Some synonyms
-  if (/(ml|machine learning|deep learning)/.test(T)) topics.push("ai");
-  if (/(brain|cortex|neuron|neural)/.test(T)) topics.push("neuroscience");
-  if (/(space|galaxy|cosmos|universe|black hole)/.test(T)) topics.push("astrophysics");
-  if (/(algorithm|python|javascript|flask|api)/.test(T)) topics.push("code");
-  if (/(data|dataset|database|sql)/.test(T)) topics.push("data");
-  if (/(proof|theorem|calculus|algebra)/.test(T)) topics.push("math");
-  if (/(ethic|bias|safety|alignment)/.test(T)) topics.push("ethics");
-  return [...new Set(topics)];
+function buildGraphElements() {
+  return [
+    { data: { id: 'session', label: 'Session' }, style: { 'background-color': '#7a8ca5', 'label': 'Session' } },
+    { data: { id: 'code', label: 'CODE' }, style: { 'background-color': '#ffe08a', 'label': 'CODE' } },
+    { data: { id: 'ai', label: 'AI' }, style: { 'background-color': '#00e6ff', 'label': 'AI' } },
+    { data: { id: 'data', label: 'DATA' }, style: { 'background-color': '#8ab4ff', 'label': 'DATA' } },
+    { data: { id: 'astro', label: 'ASTROPHYSICS' }, style: { 'background-color': '#ff3b88', 'label': 'ASTROPHYSICS' } },
+    { data: { id: 'neuro', label: 'NEUROSCIENCE' }, style: { 'background-color': '#c0a0ff', 'label': 'NEUROSCIENCE' } },
+    // Edges
+    { data: { id: 'session-code', source: 'session', target: 'code' }, style: { 'line-color': '#ffe08a' } },
+    { data: { id: 'session-ai', source: 'session', target: 'ai' }, style: { 'line-color': '#00e6ff' } },
+    { data: { id: 'session-data', source: 'session', target: 'data' }, style: { 'line-color': '#8ab4ff' } },
+    { data: { id: 'session-astro', source: 'session', target: 'astro' }, style: { 'line-color': '#ff3b88' } },
+    { data: { id: 'session-neuro', source: 'session', target: 'neuro' }, style: { 'line-color': '#c0a0ff' } }
+  ];
 }
 
-function updateGraphFromText(text){
-  const topics = extractTopics(text);
-  if (!topics.length) return;
-
-  const g = ensureGraph();
-  // root node (session)
-  if (!g.getElementById("session").length){
-    g.add({ group:"nodes", data:{ id:"session", label:"Session", color:"#7a8faa" }});
+function ensureGraph() {
+  if (!window.cy) {
+    window.cy = cytoscape({
+      container: document.getElementById('graph'),
+      elements: buildGraphElements(),
+      style: [
+        { selector: 'node', style: { 'label': 'data(label)', 'color': '#e6eef6', 'font-size': '16px', 'text-valign': 'center', 'text-halign': 'center' } },
+        { selector: 'edge', style: { 'width': 4, 'curve-style': 'bezier' } }
+      ],
+      layout: { name: 'cose' }
+    });
+  } else {
+    window.cy.elements().remove();
+    window.cy.add(buildGraphElements());
+    window.cy.layout({ name: 'cose' }).run();
   }
-
-  topics.forEach(t=>{
-    const id = `t:${t}`;
-    if (!g.getElementById(id).length){
-      g.add({ group:"nodes", data:{ id, label:t.toUpperCase(), color: topicPalette[t] || "#59f"}});
-      g.add({ group:"edges", data:{ id:`e:session:${t}`, source:"session", target:id, color: topicPalette[t] || "#59f" }});
-    }else{
-      // slight visual nudge on revisit
-      g.getElementById(id).animate({ style:{ "background-color": topicPalette[t] }}, { duration: 300 });
-    }
-  });
-
-  g.layout({ name:"cose", animate:true }).run();
 }
 
-async function rebuildGraphFromHistory(){
-  const g = ensureGraph();
-  g.elements().remove();
-  updateGraphFromText("session");
-  try{
-    const res = await fetch("/history");
-    const rows = await res.json();
-    rows.forEach(r => updateGraphFromText(r.message || ""));
-  }catch{}
-}
+// Call ensureGraph() on page load and when "Refresh from chat" is clicked
+document.addEventListener("DOMContentLoaded", ensureGraph);
+btnRefreshGraph.addEventListener("click", ensureGraph);
 
 // ---- Boot ----
 loadHistory();
