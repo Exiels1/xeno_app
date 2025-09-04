@@ -1,13 +1,18 @@
-# app.py - QuantumShade + Xeno with SQLite persistence
+# app.py - QuantumShade + Xeno Hybrid
 import os
 import sqlite3
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
+from flask_session import Session
 from groq import Groq
 from groq._base_client import APIConnectionError
 
-# === INIT APP ===
+# === CONFIG ===
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "quantumshade_secret")
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
+
 DB_FILE = "chat.db"
 
 # === DATABASE ===
@@ -27,11 +32,6 @@ def init_db():
 
 init_db()
 
-# === GROQ CLIENT ===
-client = Groq(api_key="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")
-MODEL = "llama-3.1-8b-instant"  # ⚡ lightweight, can swap to 70B for deep reasoning
-
-# === HELPERS ===
 def save_message(role, content):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
@@ -42,7 +42,7 @@ def save_message(role, content):
     conn.commit()
     conn.close()
 
-def get_conversation_history(limit=20):  # last 20 msgs for context
+def get_conversation_history(limit=20):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute(
@@ -53,6 +53,10 @@ def get_conversation_history(limit=20):  # last 20 msgs for context
     conn.close()
     return [{"role": role, "content": content} for role, content in reversed(rows)]
 
+# === GROQ CLIENT ===
+client = Groq(api_key="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")
+MODEL = "llama-3.1-8b-instant"
+
 # === ROUTES ===
 @app.route("/")
 def index():
@@ -61,14 +65,19 @@ def index():
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
-    user_message = data.get("message")
+    user_message = data.get("message", "").strip()
     if not user_message:
         return jsonify({"reply": "⚠️ Please type something."})
 
-    # Save user input
+    # --- Session Context ---
+    if "history" not in session:
+        session["history"] = []
+    session["history"].append({"role": "user", "content": user_message})
+    
+    # --- Save to DB ---
     save_message("user", user_message)
 
-    # === Xeno’s Core System Prompt ===
+    # --- Build Xeno’s system prompt ---
     system_prompt = """
     You are Xeno, the QuantumShade AI in the Exiels1 multiverse.
     🔹 Knowledge Graph: pull insights from AI, neuroscience, astrophysics, philosophy, and cutting-edge fields.
@@ -78,12 +87,19 @@ def chat():
     🔹 Tone: futuristic, neon-lit, savage-smart, with personality.
     """
 
-    # === Build Context ===
+    # --- Build chat context ---
     messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(get_conversation_history())
-    messages.append({"role": "user", "content": user_message})
+    
+    # Use session for fast recent context (last 10 messages)
+    messages.extend(session["history"][-10:])
+    
+    # Include some DB history for persistent memory (last 10)
+    db_history = get_conversation_history(limit=10)
+    for msg in db_history:
+        if msg not in messages:  # avoid duplicate
+            messages.append(msg)
 
-    # === AI RESPONSE ===
+    # --- GROQ Call ---
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -96,8 +112,9 @@ def chat():
     except Exception as e:
         bot_reply = f"⚠️ Xeno error: {str(e)}"
 
-    # Save AI reply
+    # --- Save AI reply ---
     save_message("assistant", bot_reply)
+    session["history"].append({"role": "assistant", "content": bot_reply})
 
     return jsonify({"reply": bot_reply})
 
@@ -119,5 +136,4 @@ def history():
 if __name__ == "__main__":
     import webbrowser
     webbrowser.open("http://127.0.0.1:5000")  # open browser automatically
-    app.run(host="127.0.0.1", port=5000, debug=False)
-
+    app.run(host="127.0.0.1", port=5000, debug=True)
